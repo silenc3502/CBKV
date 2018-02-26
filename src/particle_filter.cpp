@@ -17,6 +17,7 @@
 
 #include "particle_filter.h"
 
+std::default_random_engine gen;
 using namespace std;
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
@@ -24,7 +25,34 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
+	int i, particle_num = 777;
 
+	/* It comes from Udacity Lesson 15 lecture 5. */
+	double std_x = std[0];
+	double std_y = std[1];
+	double std_theta = std[2];
+
+	// This line creates a normal (Gaussian) distribution for x
+	//normal_distribution<double> dist_x(gps_x, std_x);
+	normal_distribution<double> dist_x(x, std_x);
+
+	// TODO: Create normal distributions for y and theta
+	//normal_distribution<double> dist_y(gps_y, std_y);
+	normal_distribution<double> dist_theta(theta, std_theta);
+	normal_distribution<double> dist_y(y, std_y);
+
+	for(i = 0; i < particle_num; i++)
+	{
+		Particle particle;
+		particle.id = i;
+		particle.x = dist_x(gen);
+		particle.y = dist_y(gen);
+		particle.theta = dist_theta(gen);
+		particle.weight = 1.0;
+		particles.push_back(particle);
+	}
+
+	is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -65,42 +93,42 @@ void ParticleFilter::resample() {
 }
 
 Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
-                                     const std::vector<double>& sense_x, const std::vector<double>& sense_y)
+		const std::vector<double>& sense_x, const std::vector<double>& sense_y)
 {
-    //particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
-    // associations: The landmark id that goes along with each listed association
-    // sense_x: the associations x mapping already converted to world coordinates
-    // sense_y: the associations y mapping already converted to world coordinates
+	//particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
+	// associations: The landmark id that goes along with each listed association
+	// sense_x: the associations x mapping already converted to world coordinates
+	// sense_y: the associations y mapping already converted to world coordinates
 
-    particle.associations= associations;
-    particle.sense_x = sense_x;
-    particle.sense_y = sense_y;
+	particle.associations= associations;
+	particle.sense_x = sense_x;
+	particle.sense_y = sense_y;
 }
 
 string ParticleFilter::getAssociations(Particle best)
 {
 	vector<int> v = best.associations;
 	stringstream ss;
-    copy( v.begin(), v.end(), ostream_iterator<int>(ss, " "));
-    string s = ss.str();
-    s = s.substr(0, s.length()-1);  // get rid of the trailing space
-    return s;
+	copy( v.begin(), v.end(), ostream_iterator<int>(ss, " "));
+	string s = ss.str();
+	s = s.substr(0, s.length()-1);  // get rid of the trailing space
+	return s;
 }
 string ParticleFilter::getSenseX(Particle best)
 {
 	vector<double> v = best.sense_x;
 	stringstream ss;
-    copy( v.begin(), v.end(), ostream_iterator<float>(ss, " "));
-    string s = ss.str();
-    s = s.substr(0, s.length()-1);  // get rid of the trailing space
-    return s;
+	copy( v.begin(), v.end(), ostream_iterator<float>(ss, " "));
+	string s = ss.str();
+	s = s.substr(0, s.length()-1);  // get rid of the trailing space
+	return s;
 }
 string ParticleFilter::getSenseY(Particle best)
 {
 	vector<double> v = best.sense_y;
 	stringstream ss;
-    copy( v.begin(), v.end(), ostream_iterator<float>(ss, " "));
-    string s = ss.str();
-    s = s.substr(0, s.length()-1);  // get rid of the trailing space
-    return s;
+	copy( v.begin(), v.end(), ostream_iterator<float>(ss, " "));
+	string s = ss.str();
+	s = s.substr(0, s.length()-1);  // get rid of the trailing space
+	return s;
 }
