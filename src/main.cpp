@@ -129,6 +129,7 @@ int main()
 			}
 			cout << "highest w " << highest_weight << endl;
 			cout << "average w " << weight_sum/num_particles << endl;
+			cout << "dist " << numeric_limits<double>::max() << endl;
 
 			json msgJson;
 			msgJson["best_particle_x"] = best_particle.x;

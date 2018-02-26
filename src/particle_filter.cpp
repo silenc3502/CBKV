@@ -109,7 +109,32 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 
-	
+	/* It comes from Udacity Lesson 15 lecture 9. */
+	/* It's kNN Algorithm */
+	int i, j, map_id = -1;
+
+	double min_dist = numeric_limits<double>::max();
+
+	uint observe_num = observations.size();
+	uint predict_num = predicted.size();
+
+	for(i = 0; i < observe_num; i++)
+	{
+		for(j = 0; j < predict_num; j++)
+		{
+			double x_dist = observations[i].x - predicted[j].x;
+			double y_dist = observations[i].y - predicted[j].y;
+			double dist = pow(x_dist, 2.0) + pow(y_dist, 2.0);
+
+			if(dist < min_dist)
+			{
+				min_dist = dist;
+				map_id = predicted[j].id;
+			}
+		}
+
+		observations[i].id = map_id;
+	}
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
