@@ -25,7 +25,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-	int i, particle_num = 777;
+	int i;
+	num_particles = 777;
 
 	/* It comes from Udacity Lesson 15 lecture 5. */
 	double std_x = std[0];
@@ -34,22 +35,28 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
 	// This line creates a normal (Gaussian) distribution for x
 	//normal_distribution<double> dist_x(gps_x, std_x);
-	normal_distribution<double> dist_x(x, std_x);
+	normal_distribution<double> gauss_x(x, std_x);
 
 	// TODO: Create normal distributions for y and theta
 	//normal_distribution<double> dist_y(gps_y, std_y);
-	normal_distribution<double> dist_theta(theta, std_theta);
-	normal_distribution<double> dist_y(y, std_y);
+	normal_distribution<double> gauss_y(y, std_y);
+	normal_distribution<double> gauss_theta(theta, std_theta);
 
-	for(i = 0; i < particle_num; i++)
+	for(i = 0; i < num_particles; i++)
 	{
-		Particle particle;
-		particle.id = i;
-		particle.x = dist_x(gen);
-		particle.y = dist_y(gen);
-		particle.theta = dist_theta(gen);
-		particle.weight = 1.0;
-		particles.push_back(particle);
+		Particle p;
+		p.id = i;
+		p.x = gauss_x(gen);
+		p.y = gauss_y(gen);
+		p.theta = gauss_theta(gen);
+		p.weight = 1.0;
+
+		// Noise
+		p.x += gauss_x(gen);
+		p.y += gauss_y(gen);
+		p.theta += gauss_theta(gen);
+
+		particles.push_back(p);
 	}
 
 	is_initialized = true;
@@ -61,6 +68,39 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 
+	/* It comes from Udacity Lesson 15 lecture 7. */
+	int i;
+
+	double std_x = std_pos[0];
+	double std_y = std_pos[1];
+	double std_theta = std_pos[2];
+
+	// Create Guassian Noise
+	normal_distribution<double> gauss_x(0, std_x);
+	normal_distribution<double> gauss_y(0, std_y);
+	normal_distribution<double> gauss_theta(0, std_theta);
+
+	for(i = 0; i < num_particles; i++)
+	{
+		double theta = particles[i].theta;
+
+		if(fabs(yaw_rate) < 0.00001)
+		{
+			particles[i].x += velocity * delta_t * cos(theta);
+			particles[i].y += velocity * delta_t * sin(theta);
+		}
+		else
+		{
+			particles[i].x += velocity / yaw_rate * (sin(theta + yaw_rate * delta_t) - sin(theta));
+			particles[i].y += velocity / yaw_rate * (cos(theta) - cos(theta + yaw_rate * delta_t));
+			particles[i].theta += yaw_rate * delta_t;
+		}
+
+		// Noise
+		particles[i].x += gauss_x(gen);
+		particles[i].y += gauss_y(gen);
+		particles[i].theta += gauss_theta(gen);
+	}
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
@@ -69,6 +109,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 
+	
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
