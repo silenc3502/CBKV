@@ -46,7 +46,8 @@ int main()
 	// Create particle filter
 	ParticleFilter pf;
 
-	h.onMessage([&pf,&map,&delta_t,&sensor_range,&sigma_pos,&sigma_landmark](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+	h.onMessage([&pf,&map,&delta_t,&sensor_range,&sigma_pos,&sigma_landmark](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode)
+			{
 			// "42" at the start of the message means there's a websocket message event.
 			// The 4 signifies a websocket message
 			// The 2 signifies a websocket event
@@ -65,7 +66,8 @@ int main()
 			// j[1] is the data JSON object
 
 
-			if (!pf.initialized()) {
+			if(!pf.initialized())
+			{
 
 				// Sense noisy position data from the simulator
 				double sense_x = std::stod(j[1]["sense_x"].get<std::string>());
@@ -74,13 +76,18 @@ int main()
 
 				pf.init(sense_x, sense_y, sense_theta, sigma_pos);
 			}
-			else {
+			else
+			{
 				// Predict the vehicle's next state from previous (noiseless control) data.
 				double previous_velocity = std::stod(j[1]["previous_velocity"].get<std::string>());
 				double previous_yawrate = std::stod(j[1]["previous_yawrate"].get<std::string>());
 
 				pf.prediction(delta_t, sigma_pos, previous_velocity, previous_yawrate);
 			}
+
+#if 0
+			cout << "after prediction" << endl;
+#endif
 
 			// receive noisy observation data from the simulator
 			// sense_observations in JSON format [{obs_x,obs_y},{obs_x,obs_y},...{obs_x,obs_y}]
@@ -110,9 +117,22 @@ int main()
 				noisy_observations.push_back(obs);
 			}
 
+#if 0
+			cout << "before updateWeights()" << endl;
+#endif
+
 			// Update the weights and resample
 			pf.updateWeights(sensor_range, sigma_landmark, noisy_observations, map);
+
+#if 0
+			cout << "after updateWeights()" << endl;
+#endif
+
 			pf.resample();
+
+#if 0
+			cout << "resample()" << endl;
+#endif
 
 			// Calculate and output the average weighted error of the particle filter over all time steps so far.
 			vector<Particle> particles = pf.particles;
@@ -120,12 +140,17 @@ int main()
 			double highest_weight = -1.0;
 			Particle best_particle;
 			double weight_sum = 0.0;
-			for (int i = 0; i < num_particles; ++i) {
-				if (particles[i].weight > highest_weight) {
+			for(int i = 0; i < num_particles; ++i)
+			{
+				if(particles[i].weight > highest_weight)
+				{
 					highest_weight = particles[i].weight;
 					best_particle = particles[i];
 				}
 				weight_sum += particles[i].weight;
+#if 0
+				cout << "i: " << i << " weight_sum: " << weight_sum << endl;
+#endif
 			}
 			cout << "highest w " << highest_weight << endl;
 			cout << "average w " << weight_sum/num_particles << endl;
@@ -146,13 +171,15 @@ int main()
 			ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 
 			}
-			} else {
+			}
+			else
+			{
 				std::string msg = "42[\"manual\",{}]";
 				ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 			}
 			}
 
-	});
+			});
 
 	// We don't need this since we're not using HTTP but if it's removed the program
 	// doesn't compile :-(

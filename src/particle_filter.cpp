@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <iterator>
+#include <unistd.h>
 
 #include "helper_functions.h"
 #include "map.h"
@@ -28,7 +29,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 	int i;
-	num_particles = 103;
+	num_particles = 30;
 
 	/* pow() function makes CPU Performance very low! */
 
@@ -51,12 +52,14 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 		p.x = gauss_x(gen);
 		p.y = gauss_y(gen);
 		p.theta = gauss_theta(gen);
-		p.weight = 1.0;
+		p.weight = 1;
 
+#if 1
 		// Noise
 		p.x += gauss_x(gen);
 		p.y += gauss_y(gen);
 		p.theta += gauss_theta(gen);
+#endif
 
 		particles.push_back(p);
 	}
@@ -86,7 +89,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	{
 		double theta = particles[i].theta;
 
-		if(fabs(yaw_rate) < 0.00001)
+		if(fabs(yaw_rate) < 0.0001)
 		{
 			particles[i].x += velocity * delta_t * cos(theta);
 			particles[i].y += velocity * delta_t * sin(theta);
@@ -95,6 +98,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 		{
 			particles[i].x += velocity / yaw_rate * (sin(theta + yaw_rate * delta_t) - sin(theta));
 			particles[i].y += velocity / yaw_rate * (cos(theta) - cos(theta + yaw_rate * delta_t));
+			//particles[i].theta += yaw_rate * delta_t;
 			particles[i].theta += yaw_rate * delta_t;
 		}
 
@@ -114,13 +118,16 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	/* It comes from Udacity Lesson 15 lecture 9. */
 	uint i, j;
 
-	double min_dist = numeric_limits<double>::max();
+	//double min_dist = numeric_limits<double>::max();
+	double min_dist = 7777777;
 
 	uint observe_num = observations.size();
 	uint predict_num = predicted.size();
 
 	for(i = 0; i < observe_num; i++)
 	{
+		int mapId = -1;
+
 		for(j = 0; j < predict_num; j++)
 		{
 #if 0
@@ -128,14 +135,20 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 			double y_dist = observations[i].y - predicted[j].y;
 			double dist = pow(x_dist, 2.0) + pow(y_dist, 2.0);
 #endif
-			double d = dist(predicted[j].x, predicted[j].y, observations[i].x, observations[i].y);
+			double x_dist = observations[i].x - predicted[j].x;
+			double y_dist = observations[i].y - predicted[j].y;
+			//double d = dist(predicted[j].x, predicted[j].y, observations[i].x, observations[i].y);
+
+			double d = x_dist * x_dist + y_dist * y_dist;
 
 			if(d < min_dist)
 			{
 				min_dist = d;
-				observations[i].id = predicted[j].id;
+				//observations[i].id = predicted[j].id;
+				mapId = predicted[j].id;
 			}
 		}
+		observations[i].id = mapId;
 	}
 }
 
@@ -176,9 +189,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		double y = particles[i].y;
 		double theta = particles[i].theta;
 #endif
-		x = particles[i].x;
-		y = particles[i].y;
-		theta = particles[i].theta;
+		//x = particles[i].x;
+		//y = particles[i].y;
+		//theta = particles[i].theta;
 
 		/* Find Landmarks. */
 		//double sq_sensor_range = pow(sensor_range, 2.0);
@@ -246,11 +259,19 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			/* This is Weights.
 			   Very strange situation.
 			   When I didn't use pow() then it decrease performance 11%. */
-			double weight = (1 / (2 * M_PI * landmark_range * landmark_bearing)) * exp(-(pow(dx, 2.0) / (2 * pow(landmark_range, 2.0)) + (pow(dy, 2.0) / (2 * pow(landmark_bearing, 2.0)))));
+			double weight = (1 / (2 * M_PI * landmark_range * landmark_bearing)) * exp(-(pow(dx, 2) / (2 * pow(landmark_range, 2)) + (pow(dy, 2) / (2 * pow(landmark_bearing, 2)))));
 			//double weight = (1 / (2 * M_PI * landmark_range * landmark_bearing)) * exp(-(dx * dx / (2 * landmark_range * landmark_range) + (dy * dy / (2 * landmark_bearing * landmark_bearing))));
 
 			if (weight == 0)
-				particles[i].weight *= 0.00001;
+				//particles[i].weight *= 0.00001;
+				//particles[i].weight *= 0.0001;
+				// It's for Floating Point Optimization Technique
+				// 0.5, 0.25, 0.125, 0.0625, 0.03125, ... , 0.0009765625
+				// 0.00048828125, 0.000244140625, 0.0001220703125
+				//particles[i].weight *= 0.0001220703125;
+				//particles[i].weight *= 0.000244140625;
+				//particles[i].weight *= 0.00048828125;
+				particles[i].weight *= 0.0009765625;
 			else
 				particles[i].weight *= weight;
 		}
@@ -266,6 +287,10 @@ void ParticleFilter::resample() {
 	vector<double> weights;
 	double weight_max = numeric_limits<double>::min();
 
+#if 0
+	cout << "Before Set Max" << endl;
+#endif
+
 	/* Comparing & Set max */
 	for(i = 0; i < num_particles; i++)
 	{
@@ -275,30 +300,61 @@ void ParticleFilter::resample() {
 			weight_max = particles[i].weight;
 	}
 
+#if 0
+	cout << "After Set Max" << endl;
+#endif
+
 	/* Create Non-Gaussian Distribution - It's Uniform Distribution */
 	uniform_real_distribution<double> non_gauss_double(0.0, weight_max);
 	uniform_int_distribution<int> non_gauss_int(0, num_particles - 1);
 
 	/* Index Generation */
 	int idx = non_gauss_int(gen);
+	//int idx;
 
 	double beta = 0.0;
 
 	vector<Particle> resample_particles;
 
+#if 0
+	cout << "Before Get Resample Particles" << endl;
+#endif
+
 	for(i = 0; i < num_particles; i++)
 	{
+		uint cnt = 0;
 		beta += non_gauss_double(gen) * 2.0;
+
+#if 0
+		cout << "Outer beta: " << beta << " weights: " << weights[idx] << " idx: " << idx << endl;
+#endif
 
 		while(beta > weights[idx])
 		{
 			beta -= weights[idx];
 			idx = (idx + 1) % num_particles;
+
+			if(weights[idx] == 0)
+				cnt++;
+
+			if(cnt > num_particles)
+			{
+				//weights[idx] = 0.1e-20;
+				weights[idx] = beta;
+				break;
+			}
+#if 0
+			cout << "Inner beta: " << beta << " weights: " << weights[idx] << " idx: " << idx << endl;
+#endif
 		}
 		resample_particles.push_back(particles[idx]);
 	}
 
 	particles = resample_particles;
+
+#if 0
+	cout << "After Get Resample Particles" << endl;
+#endif
 }
 
 Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
