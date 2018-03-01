@@ -29,7 +29,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 	int i;
-	num_particles = 30;
+	num_particles = 77;
 
 	/* pow() function makes CPU Performance very low! */
 
@@ -52,9 +52,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 		p.x = gauss_x(gen);
 		p.y = gauss_y(gen);
 		p.theta = gauss_theta(gen);
-		p.weight = 1;
+		p.weight = 1.0;
 
-#if 1
+#if 0
 		// Noise
 		p.x += gauss_x(gen);
 		p.y += gauss_y(gen);
@@ -62,6 +62,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 #endif
 
 		particles.push_back(p);
+		weights.push_back(p.weight);
 	}
 
 	is_initialized = true;
@@ -89,7 +90,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	{
 		double theta = particles[i].theta;
 
-		if(fabs(yaw_rate) < 0.0001)
+		if(fabs(yaw_rate) < 0.001)
 		{
 			particles[i].x += velocity * delta_t * cos(theta);
 			particles[i].y += velocity * delta_t * sin(theta);
@@ -118,14 +119,15 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	/* It comes from Udacity Lesson 15 lecture 9. */
 	uint i, j;
 
+	//double min_dist = 7777777;
 	//double min_dist = numeric_limits<double>::max();
-	double min_dist = 7777777;
 
 	uint observe_num = observations.size();
 	uint predict_num = predicted.size();
 
 	for(i = 0; i < observe_num; i++)
 	{
+		double min_dist = 777777;
 		int mapId = -1;
 
 		for(j = 0; j < predict_num; j++)
@@ -145,7 +147,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 			{
 				min_dist = d;
 				//observations[i].id = predicted[j].id;
-				mapId = predicted[j].id;
+				//mapId = predicted[j].id;
+				mapId = j;
 			}
 		}
 		observations[i].id = mapId;
@@ -195,7 +198,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 		/* Find Landmarks. */
 		//double sq_sensor_range = pow(sensor_range, 2.0);
-		double sq_sensor_range = sensor_range * sensor_range;
+		//double sq_sensor_range = sensor_range * sensor_range;
 		vector<LandmarkObs> range_landmarks;
 
 		for(uint j = 0; j < map_landmarks.landmark_list.size(); j++)
@@ -203,13 +206,15 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			float landmark_x = map_landmarks.landmark_list[j].x_f;
 			float landmark_y = map_landmarks.landmark_list[j].y_f;
 			int id = map_landmarks.landmark_list[j].id_i;
-			double dx = x - landmark_x;
-			double dy = y - landmark_y;
+			//double dx = x - landmark_x;
+			//double dy = y - landmark_y;
+			double dx = landmark_x - x;
+			double dy = landmark_y - y;
 
 			/* pow() function is so bad at this case - performance so bad
 			   This makes 33% improvement when doesn't use pow() func. */
 			//if(pow(dx, 2.0) + pow(dy, 2.0) <= sq_sensor_range)
-			if((dx * dx + dy * dy) <= sq_sensor_range)
+			if(sqrt(dx * dx + dy * dy) <= sensor_range)
 				range_landmarks.push_back(LandmarkObs{id, landmark_x, landmark_y});
 		}
 
@@ -227,7 +232,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		dataAssociation(range_landmarks, mapped_obs);
 
 		/* Reset weight */
-		particles[i].weight = 1.0;
+		//particles[i].weight = 1.0;
+		double tmp_weight = 1.0;
 
 		/* Now Calculate Weights */
 		for(uint j = 0; j < mapped_obs.size(); j++)
@@ -237,7 +243,20 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 			int landmark_id = mapped_obs[j].id;
 
-			double landmark_x, landmark_y;
+			double landmark_x = range_landmarks[landmark_id].x;
+			double landmark_y = range_landmarks[landmark_id].y;
+
+			double dx = observe_x - landmark_x;
+			double dy = observe_y - landmark_y;
+
+			/* double landmark_range = std_landmark[0];
+			   double landmark_bearing = std_landmark[1]; */
+
+			double p = dx * dx * (0.5 / (landmark_range * landmark_range));
+			double q = dy * dy * (0.5 / (landmark_bearing * landmark_bearing));
+			double r = exp(-(p + q)) / sqrt(2.0 * M_PI * landmark_range * landmark_bearing);
+			tmp_weight *= r;
+#if 0
 			unsigned int k = 0;
 			unsigned int landmarks_num = range_landmarks.size();
 			bool found = false;
@@ -271,10 +290,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 				//particles[i].weight *= 0.0001220703125;
 				//particles[i].weight *= 0.000244140625;
 				//particles[i].weight *= 0.00048828125;
-				particles[i].weight *= 0.0009765625;
+				particles[i].weight *= 0.00001;
 			else
 				particles[i].weight *= weight;
+#endif
 		}
+
+		particles[i].weight = tmp_weight;
+		weights[i] = tmp_weight;
 	}
 }
 
@@ -283,6 +306,7 @@ void ParticleFilter::resample() {
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
+#if WRONG_CODE_WHAT_I_MADE
 	int i;
 	vector<double> weights;
 	double weight_max = numeric_limits<double>::min();
@@ -350,11 +374,21 @@ void ParticleFilter::resample() {
 		resample_particles.push_back(particles[idx]);
 	}
 
-	particles = resample_particles;
+	cout << "check!" << endl;
 
-#if 0
-	cout << "After Get Resample Particles" << endl;
-#endif
+	particles = resample_particles;
+#endif			// End of WRONG_CODE_WHAT_I_MADE
+
+	/* This is the suggestion code of Support Team.
+	   So, I add each weight to weights with push_back. */
+
+	discrete_distribution<int> d(weights.begin(), weights.end());
+	vector<Particle> resamples;
+
+	for(size_t i = 0; i < num_particles; ++i)
+	    resamples.push_back(particles[d(gen)]);
+
+	particles = resamples;
 }
 
 Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
